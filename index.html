@@ -5,24 +5,81 @@
 <title>Upscale Pixel Art ZIP</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  body { font-family: sans-serif; padding: 2em; background: #222; color: #fff; }
-  input, button { margin-top: 1em; display: block; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    padding: 1em;
+    margin: 0;
+    background: #121212;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+  }
+
+  h1 {
+    font-size: 1.5em;
+    text-align: center;
+    margin-bottom: 1em;
+  }
+
+  input, select, button {
+    margin: 0.5em 0;
+    padding: 0.8em 1em;
+    font-size: 1em;
+    border-radius: 8px;
+    border: none;
+    width: 100%;
+    max-width: 300px;
+  }
+
+  button {
+    background: #1e88e5;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+
+  button:hover {
+    background: #1565c0;
+  }
+
+  label {
+    margin-top: 1em;
+  }
 </style>
 </head>
 <body>
+
 <h1>Upscale Pixel Art ZIP</h1>
+
+<label for="zipInput">Choisis ton fichier ZIP :</label>
 <input type="file" id="zipInput" accept=".zip"/>
-<button id="processBtn">Upscale et créer nouveau ZIP</button>
+
+<label for="scaleSelect">Facteur d'upscale :</label>
+<select id="scaleSelect">
+  <option value="2">x2</option>
+  <option value="3">x3</option>
+  <option value="4" selected>x4</option>
+</select>
+
+<button id="processBtn">Upscale et créer ZIP</button>
+
 <script>
 document.getElementById('processBtn').addEventListener('click', async () => {
   const fileInput = document.getElementById('zipInput');
-  if (!fileInput.files.length) { alert('Choisis un ZIP !'); return; }
+  const scale = parseInt(document.getElementById('scaleSelect').value, 10);
+
+  if (!fileInput.files.length) { 
+    alert('Choisis un fichier ZIP !'); 
+    return; 
+  }
 
   const zipFile = fileInput.files[0];
   const JSZipLib = new JSZip();
   const zip = await JSZipLib.loadAsync(zipFile);
-
   const newZip = new JSZip();
 
   for (const filename of Object.keys(zip.files)) {
@@ -30,7 +87,7 @@ document.getElementById('processBtn').addEventListener('click', async () => {
     if (!file.dir && /\.(png|jpg|jpeg)$/i.test(filename)) {
       const blob = await file.async('blob');
       const img = await loadImage(blob);
-      const upscaledBlob = await upscaleImage(img, 4); // x4, change le facteur si besoin
+      const upscaledBlob = await upscaleImage(img, scale);
       newZip.file(filename, upscaledBlob);
     }
   }
@@ -40,7 +97,6 @@ document.getElementById('processBtn').addEventListener('click', async () => {
   alert("Nouveau ZIP créé !");
 });
 
-// fonction pour charger l'image depuis un blob
 function loadImage(blob) {
   return new Promise(resolve => {
     const img = new Image();
@@ -49,7 +105,6 @@ function loadImage(blob) {
   });
 }
 
-// fonction pour upscaler l'image tout en gardant l'effet pixel art
 function upscaleImage(img, scale) {
   return new Promise(resolve => {
     const canvas = document.createElement('canvas');
@@ -62,5 +117,6 @@ function upscaleImage(img, scale) {
   });
 }
 </script>
+
 </body>
 </html>
