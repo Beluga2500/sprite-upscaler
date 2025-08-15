@@ -2,76 +2,226 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Upscale Pixel Art ZIP</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Outils Pixel Art</title>
 <style>
   body {
-    font-family: 'Segoe UI', sans-serif;
-    padding: 1em;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     margin: 0;
-    background: #121212;
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-height: 100vh;
-  }
-
-  h1 {
-    font-size: 1.5em;
+    padding: 0;
+    background: #f9f9f9;
+    color: #222;
     text-align: center;
-    margin-bottom: 1em;
   }
-
-  input, select, button {
-    margin: 0.5em 0;
-    padding: 0.8em 1em;
-    font-size: 1em;
+  header {
+    background: linear-gradient(135deg, #007aff, #00c6ff);
+    color: white;
+    padding: 1rem;
+    font-size: 1.5rem;
+    font-weight: bold;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+  nav {
+    margin: 1em 0;
+  }
+  nav button {
+    margin: 0 0.5em;
+    padding: 0.5em 1em;
     border-radius: 8px;
     border: none;
-    width: 100%;
-    max-width: 300px;
-  }
-
-  button {
-    background: #1e88e5;
-    color: #fff;
+    font-weight: bold;
     cursor: pointer;
+    background: #007aff;
+    color: white;
     transition: background 0.3s;
   }
-
-  button:hover {
-    background: #1565c0;
+  nav button:hover { background: #005ecb; }
+  main {
+    padding: 1rem;
+    max-width: 600px;
+    margin: auto;
   }
-
+  input, button, select {
+    appearance: none;
+    border: none;
+    padding: 0.8rem 1.2rem;
+    border-radius: 10px;
+    font-size: 1rem;
+    margin: 0.5rem 0;
+    width: 100%;
+  }
+  button.action {
+    background: #007aff;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  button.action:hover { background: #005ecb; }
   label {
-    margin-top: 1em;
+    display: block;
+    text-align: left;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: #555;
   }
+  #output a img {
+    border: 1px solid #ccc;
+    margin: 4px;
+    border-radius: 6px;
+    max-width: 100px;
+  }
+  section { display: none; }
+  section.active { display: block; }
 </style>
 </head>
 <body>
 
-<h1>Upscale Pixel Art ZIP</h1>
+<header>🎨 Outils Pixel Art</header>
+<nav>
+  <button onclick="showSection('decoupe')">Découpeur</button>
+  <button onclick="showSection('upscale')">Upscale</button>
+</nav>
 
-<label for="zipInput">Choisis ton fichier ZIP :</label>
-<input type="file" id="zipInput" accept=".zip"/>
+<main>
 
-<label for="scaleSelect">Facteur d'upscale :</label>
-<select id="scaleSelect">
-  <option value="2">x2</option>
-  <option value="3">x3</option>
-  <option value="4" selected>x4</option>
-</select>
+<!-- Découpeur -->
+<section id="decoupe" class="active">
+  <input type="file" id="fileInput" accept="image/*">
+  <label for="margin">Marge autour du sprite (px)</label>
+  <input type="number" id="margin" value="2" min="0">
 
-<button id="processBtn">Upscale et créer ZIP</button>
+  <label for="minSize">Taille minimale (px)</label>
+  <input type="number" id="minSize" value="4" min="1">
+
+  <button class="action" id="downloadAll">📦 Télécharger tout en ZIP</button>
+  <div id="output"></div>
+</section>
+
+<!-- Upscale -->
+<section id="upscale">
+  <label for="zipInput">Choisis ton fichier ZIP :</label>
+  <input type="file" id="zipInput" accept=".zip"/>
+
+  <label for="scaleSelect">Facteur d'upscale :</label>
+  <select id="scaleSelect">
+    <option value="2">x2</option>
+    <option value="3">x3</option>
+    <option value="4" selected>x4</option>
+  </select>
+
+  <button class="action" id="processBtn">Upscale et créer ZIP</button>
+</section>
+
+<canvas id="canvas" style="display:none;"></canvas>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
 <script>
+function showSection(id) {
+  document.querySelectorAll('section').forEach(sec => sec.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ===== Découpeur ===== */
+let spriteDataURLs = [];
+document.getElementById('fileInput').addEventListener('change', processImage);
+document.getElementById('downloadAll').addEventListener('click', downloadAllSprites);
+
+function processImage(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const margin = parseInt(document.getElementById('margin').value);
+    const minSize = parseInt(document.getElementById('minSize').value);
+
+    const img = new Image();
+    img.onload = function() {
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const visited = new Uint8Array(canvas.width * canvas.height);
+        const sprites = [];
+
+        function getPixelIndex(x, y) { return (y * canvas.width + x) * 4; }
+        function isOpaque(x, y) { return imgData.data[getPixelIndex(x, y) + 3] > 0; }
+        function floodFill(x, y) {
+            let minX = x, maxX = x, minY = y, maxY = y;
+            const stack = [[x, y]];
+            while (stack.length) {
+                const [cx, cy] = stack.pop();
+                if (cx < 0 || cy < 0 || cx >= canvas.width || cy >= canvas.height) continue;
+                const idx = cy * canvas.width + cx;
+                if (visited[idx] || !isOpaque(cx, cy)) continue;
+                visited[idx] = 1;
+                minX = Math.min(minX, cx);
+                maxX = Math.max(maxX, cx);
+                minY = Math.min(minY, cy);
+                maxY = Math.max(maxY, cy);
+                stack.push([cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]);
+            }
+            return {minX, maxX, minY, maxY};
+        }
+
+        for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+                const idx = y * canvas.width + x;
+                if (!visited[idx] && isOpaque(x, y)) {
+                    const box = floodFill(x, y);
+                    const w = box.maxX - box.minX + 1;
+                    const h = box.maxY - box.minY + 1;
+                    if (w >= minSize && h >= minSize) {
+                        box.minX = Math.max(0, box.minX - margin);
+                        box.minY = Math.max(0, box.minY - margin);
+                        box.maxX = Math.min(canvas.width - 1, box.maxX + margin);
+                        box.maxY = Math.min(canvas.height - 1, box.maxY + margin);
+                        sprites.push(box);
+                    }
+                }
+            }
+        }
+
+        const output = document.getElementById('output');
+        output.innerHTML = '';
+        spriteDataURLs = [];
+
+        sprites.forEach((box, i) => {
+            const w = box.maxX - box.minX + 1;
+            const h = box.maxY - box.minY + 1;
+            const spriteCanvas = document.createElement('canvas');
+            spriteCanvas.width = w;
+            spriteCanvas.height = h;
+            const sctx = spriteCanvas.getContext('2d');
+            sctx.putImageData(ctx.getImageData(box.minX, box.minY, w, h), 0, 0);
+            const url = spriteCanvas.toDataURL();
+            spriteDataURLs.push({url, name: `sprite_${i}.png`});
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `sprite_${i}.png`;
+            link.innerHTML = `<img src="${url}">`;
+            output.appendChild(link);
+        });
+    };
+    img.src = URL.createObjectURL(file);
+}
+
+function downloadAllSprites() {
+    if (spriteDataURLs.length === 0) return alert("Aucun sprite détecté !");
+    const zip = new JSZip();
+    spriteDataURLs.forEach(sprite => {
+        zip.file(sprite.name, sprite.url.split(',')[1], {base64: true});
+    });
+    zip.generateAsync({type:"blob"}).then(content => saveAs(content, "sprites.zip"));
+}
+
+/* ===== Upscale ===== */
 document.getElementById('processBtn').addEventListener('click', async () => {
   const fileInput = document.getElementById('zipInput');
   const scale = parseInt(document.getElementById('scaleSelect').value, 10);
-
   if (!fileInput.files.length) { 
     alert('Choisis un fichier ZIP !'); 
     return; 
